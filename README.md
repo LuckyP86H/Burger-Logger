@@ -72,4 +72,4 @@ When trying to connect remotely to your Heroku database on an open network such 
 
 **Good Luck!**
 ________________
-<sub> &copy; Paul Xu at Univerversity of Toronto School of Continuing Studies Coding Boot Camp in March 2019 </sub>
+<sub> &copy; Paul Xu at Univerversity of Toronto School of Continuing Studies Coding Boot Camp in April 2019 </sub>
