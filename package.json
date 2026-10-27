@@ -1,26 +1,46 @@
 {
-  "name": "burger",
-  "version": "1.0.0",
-  "description": "",
-  "main": "server.js",
+  "name": "burger-logger",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Burger Logger: a craving list and tasting journal, server-rendered on Cloudflare Workers with an MCP endpoint for AI agents.",
+  "author": "Paul Xu",
+  "type": "module",
+  "packageManager": "pnpm@11.28.8",
+  "engines": {
+    "node": ">=22.12"
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "pnpm db:migrate:local && wrangler dev",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "test": "vitest run",
+    "e2e": "playwright test",
+    "knip": "knip",
+    "cf-typegen": "wrangler types",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
+    "build": "pnpm typecheck && wrangler deploy --dry-run --outdir dist",
+    "cf:deploy": "pnpm typecheck && wrangler deploy",
+    "vendor": "node scripts/vendor.mjs",
+    "gifs": "node scripts/make-gifs.mjs",
+    "validate": "pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm e2e && pnpm knip"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/natplusultra/Burger.git"
-  },
-  "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/natplusultra/Burger/issues"
-  },
-  "homepage": "https://github.com/natplusultra/Burger#readme",
   "dependencies": {
-    "body-parser": "^1.18.2",
-    "express": "^4.16.2",
-    "express-handlebars": "^3.0.0",
-    "method-override": "^2.3.10",
-    "mysql": "^2.15.0"
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "hono": "^4.13.14",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@biomejs/biome": "^2.6.3",
+    "@cloudflare/vitest-plugin": "^1.4.9",
+    "@playwright/test": "^1.64.1",
+    "@types/node": "^22.20.5",
+    "htmx.org": "^2.0.11",
+    "knip": "^6.43.0",
+    "typescript": "^7.0.2",
+    "vitest": "~5.0.5",
+    "wrangler": "^4.154.0"
   }
 }

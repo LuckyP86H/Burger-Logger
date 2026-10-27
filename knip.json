@@ -1,0 +1,8 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": ["e2e/**/*.spec.ts", "test/*.ts", "scripts/*.mjs"],
+  "project": ["src/**/*.{ts,tsx}", "e2e/**/*.ts", "test/**/*.ts", "scripts/*.mjs", "*.config.ts"],
+  "ignoreExportsUsedInFile": true,
+  "ignoreDependencies": ["cloudflare", "htmx.org"],
+  "ignoreBinaries": ["ffmpeg"]
+}
