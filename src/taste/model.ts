@@ -99,7 +99,7 @@ export function predict(model: TasteModel, tags: readonly Tag[], today: string):
 }
 
 /**
- * Tags with the strongest learned feelings, for the "your taste" strip and 忌. A tag needs at
+ * Tags with the strongest learned feelings, for the "your taste" strip and the card's promise. A tag needs at
  * least two examples: one bad cheeseburger should not announce that you dislike beef.
  */
 export function tasteSummary(model: TasteModel, count = 3) {
