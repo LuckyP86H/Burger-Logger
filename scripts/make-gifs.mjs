@@ -189,5 +189,43 @@ async function lifecycle(page, rec, extra = "") {
   await page.context().close();
 }
 
+// 4. 今日汉堡: the daily card, before and after the taste model has something to learn from.
+{
+  const page = await newPage();
+  const rec = recorder(page);
+  await page.goto(BASE);
+  await page.getByTestId("today").scrollIntoViewIfNeeded();
+  await rec.shot("Day one: 今日汉堡 is still learning", 2.2);
+
+  const post = (path, form) =>
+    page.request.post(`${BASE}${path}`, { form, headers: { origin: BASE } });
+  const ratings = [
+    ["Smoky BBQ bacon burger", "5", "loved the smoky bacon"],
+    ["Smoked brisket smash", "5", "great char"],
+    ["Pretzel bun cheeseburger", "2", "way too salty"],
+    ["Teriyaki pineapple burger", "2", "a bit too sweet"],
+    ["Anchovy olive burger", "2", "too salty again"],
+  ];
+  for (const [name, rating, note] of ratings) {
+    await post("/burgers", { name });
+    const { burgers } = await (await page.request.get(`${BASE}/journal.json`)).json();
+    await post(`/burgers/${burgers.find((b) => b.name === name).id}/devour`, { rating, note });
+  }
+  await page.goto(BASE);
+  await page.getByRole("heading", { name: "Devoured" }).scrollIntoViewIfNeeded();
+  await rec.shot("Rate a few burgers, with honest notes", 2.4);
+
+  // Fast-forward to tomorrow: the pick is cached per day, so clear today's cache.
+  spawnSync(
+    "pnpm",
+    ["exec", "wrangler", "d1", "execute", "DB", "--local", "--command", "DELETE FROM daily_picks"],
+    { stdio: "ignore" },
+  );
+  await page.goto(BASE);
+  await rec.shot("Next day: it learned smoky +, salty −", 3);
+  rec.save("todays-burger");
+  await page.context().close();
+}
+
 await browser.close();
 stop();

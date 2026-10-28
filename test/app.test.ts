@@ -39,8 +39,20 @@ class Visitor {
 }
 
 beforeEach(async () => {
-  await env.DB.prepare("DELETE FROM burgers").run();
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM burgers"),
+    env.DB.prepare("DELETE FROM daily_picks"),
+  ]);
 });
+
+/** Undoes the HTML escaping JSX applies, to compare page text with API data. */
+const unescapeHtml = (text: string) =>
+  text
+    .replaceAll("&#39;", "'")
+    .replaceAll("&quot;", '"')
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">")
+    .replaceAll("&amp;", "&");
 
 const idOf = async (visitor: Visitor, name: string) => {
   const { burgers } = (await (await visitor.fetch("/journal.json")).json()) as {
@@ -260,6 +272,8 @@ describe("MCP", () => {
       "devour_burger",
       "journal_stats",
       "list_burgers",
+      "taste_profile",
+      "todays_burger",
     ]);
   });
 
@@ -306,5 +320,111 @@ describe("MCP", () => {
       body: "{}",
     });
     expect(bad.status).toBe(404);
+  });
+});
+
+describe("今日汉堡 (today's burger)", () => {
+  it("shows one pick per day and keeps it across reloads", async () => {
+    const visitor = new Visitor();
+    const first = await visitor.page();
+    expect(first).toContain("今日汉堡");
+    expect(first).toMatch(/data-testid="almanac"/);
+    const title = first.match(/<h2 id="today-title">([^<]+)</)?.[1];
+    expect(title).toBeTruthy();
+    expect((await visitor.page()).match(/<h2 id="today-title">([^<]+)</)?.[1]).toBe(title);
+  });
+
+  it("adds today's pick to the craving list, then points at it", async () => {
+    const visitor = new Visitor();
+    const title = (await visitor.page()).match(/<h2 id="today-title">([^<]+)</)?.[1] ?? "";
+    const added = await visitor.post("/today/add", {});
+    expect(added.status).toBe(303);
+    expect(added.headers.get("location")).toMatch(/^\/#burger-\d+$/);
+    const html = await visitor.page();
+    expect(html).toContain("It&#39;s on your list: devour it today");
+    expect(html).toMatch(
+      new RegExp(
+        `data-testid="craving"[^>]*>[\\s\\S]*${title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`,
+      ),
+    );
+    // Adding again does nothing new.
+    await visitor.post("/today/add", {});
+    expect(
+      (await (await visitor.fetch("/journal.json")).json()) as { burgers: unknown[] },
+    ).toMatchObject({
+      burgers: [expect.anything()],
+    });
+  });
+
+  it("tags burgers from their name and note, and drops tags with the burger", async () => {
+    const visitor = new Visitor();
+    await visitor.post("/burgers", { name: "Smoky bacon cheeseburger" });
+    const id = await idOf(visitor, "Smoky bacon cheeseburger");
+    await visitor.post(`/burgers/${id}/devour`, { rating: "4", note: "great bacon, a bit salty" });
+    const { results } = await env.DB.prepare(
+      "SELECT tag, polarity FROM burger_tags WHERE burger_id = ? ORDER BY tag",
+    )
+      .bind(id)
+      .all();
+    expect(results).toEqual(
+      expect.arrayContaining([
+        { tag: "bacon", polarity: 1 },
+        { tag: "salty", polarity: -1 },
+        { tag: "smoky", polarity: 0 },
+        { tag: "cheesy", polarity: 0 },
+      ]),
+    );
+    await visitor.post(`/burgers/${id}/delete`, {});
+    const left = await env.DB.prepare("SELECT COUNT(*) AS n FROM burger_tags WHERE burger_id = ?")
+      .bind(id)
+      .first();
+    expect(left).toEqual({ n: 0 });
+  });
+
+  it("learns from ratings and shows it in the taste strip and the almanac", async () => {
+    const visitor = new Visitor();
+    for (const [name, rating, note] of [
+      ["Smoky BBQ bacon", "5", "loved the bacon"],
+      ["Smoked brisket burger", "5", ""],
+      ["Salty pretzel burger", "2", "way too salty"],
+      ["Anchovy burger", "2", "too salty again"],
+    ] as const) {
+      await visitor.post("/burgers", { name });
+      const id = await idOf(visitor, name);
+      await visitor.post(`/burgers/${id}/devour`, { rating, note });
+    }
+    await env.DB.prepare("DELETE FROM daily_picks").run();
+    const html = await visitor.page();
+    expect(html).toMatch(/data-testid="taste"[\s\S]*\+ smoky/);
+    expect(html).toMatch(/class="chip dislike">− salty/);
+    // 忌 warns about saltiness, unless today's pick is itself salty.
+    const row = await env.DB.prepare("SELECT pick FROM daily_picks").first<{ pick: string }>();
+    const card = JSON.parse(row?.pick ?? "{}") as { tags: string[]; ji: string[] };
+    expect(card.ji.includes("太咸")).toBe(!card.tags.includes("salty"));
+    if (!card.tags.includes("salty")) expect(html).toContain("太咸");
+  });
+
+  it("is available to agents over MCP, and matches the page", async () => {
+    const visitor = new Visitor();
+    const title = unescapeHtml(
+      (await visitor.page()).match(/<h2 id="today-title">([^<]+)</)?.[1] ?? "",
+    );
+    const response = await exports.default.fetch(`${ORIGIN}/mcp/${visitor.key}`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        accept: "application/json, text/event-stream",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: { name: "todays_burger", arguments: {} },
+      }),
+    });
+    const body = (await response.json()) as { result: { content: { text: string }[] } };
+    const card = JSON.parse(body.result.content[0]?.text ?? "{}");
+    expect(card.en).toBe(title);
+    expect(card.yi.length).toBeGreaterThan(0);
   });
 });

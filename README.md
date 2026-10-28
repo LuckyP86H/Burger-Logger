@@ -1,6 +1,6 @@
 # 🍔 Burger Logger
 
-A craving list and tasting journal. Write down the burgers you want, then **devour** them with a 1–5 rating and a note.
+A craving list and tasting journal. Write down the burgers you want, then **devour** them with a 1–5 rating and a note. Every day, **今日汉堡** (today's burger) picks one for you from what it has learned about your taste.
 
 ![Adding a burger, devouring it with a rating, and watching the stats update](docs/log-and-devour.gif)
 
@@ -13,6 +13,19 @@ The original taught the basic CRUD loop: *form → route → SQL → HTML*. This
 1. **HTML over the wire.** No React, no Vue, no build step. The server renders pages and [htmx](https://htmx.org) swaps them in place.
 2. **One domain, two doors.** People use the web forms; AI agents use [MCP](https://modelcontextprotocol.io). Both go through the same validation and SQL, so they can't disagree.
 3. **Privacy without accounts.** Every browser gets its own private journal from a random key. No sign-up, no passwords.
+4. **Small ML you can read, with an LLM where it helps.** A tiny taste model learns from your ratings; a language model is optional and only processes text.
+
+## 今日汉堡: today's burger
+
+![The daily card on day one, then after a few honest ratings: it learned smoky is good and salty is bad](docs/todays-burger.gif)
+
+How the card is made, in three steps you can read in [`src/taste/`](src/taste):
+
+1. **Text → features.** Each burger's name and note become tags from a fixed list, with sentiment: *"great bacon, a bit salty"* → `bacon +1, salty −1`. A keyword tagger (English and Chinese) runs instantly; if a model is connected it re-reads the text in the background and its validated tags replace the keyword ones.
+2. **Features → taste.** Each rating minus your average is shared among that burger's tags; praise or complaints push a tag one more point. Dividing by `count + 2` keeps a tag near zero until it has a few examples (the idea behind ridge regularisation). Weights like `smoky +0.8, salty −0.9` are the whole model.
+3. **Taste → today's pick.** Your cravings and 20 classic styles are scored, with a bonus for a patty you haven't had in two weeks. One is drawn with a die seeded by your journal and the date, so it is the **same pick all day**, like a daily almanac: **宜** what today favours, **忌** what to avoid.
+
+A model, if configured, only writes the witty line. Until it answers, or if it fails, a template line stands in. The card says which wrote it.
 
 ## See it work
 
@@ -31,7 +44,7 @@ pnpm dev          # http://localhost:8787, with a local D1 database
 
 | Command | What it does |
 | --- | --- |
-| `pnpm test` | Worker tests inside the real Workers runtime (workerd) with a local D1 |
+| `pnpm test` | Worker tests inside the real Workers runtime (workerd) with a local D1, once without a model and once with a scripted fake model |
 | `pnpm e2e` | Playwright: desktop and phone, JavaScript on and off, axe accessibility scans in both themes |
 | `pnpm validate` | Lint, types, tests, build, e2e, knip |
 | `pnpm gifs` | Re-records the GIFs above from the live app (needs `ffmpeg`) |
@@ -58,7 +71,10 @@ Read the code in this order; it is about 600 lines in total:
 | [`src/db.ts`](src/db.ts) | Plain SQL with `RETURNING`. The 200-burger limit is **inside** the `INSERT`, so two simultaneous requests can't both pass it. |
 | [`src/index.tsx`](src/index.tsx) | Routes, the journal cookie, CSRF, and the CSP. Each form action is a `POST` that redirects (`303`) back to `/`. |
 | [`src/views.tsx`](src/views.tsx) | Server-rendered JSX components. The "Devour it!" form is a native `<details>` element: no JavaScript needed to open it. |
-| [`src/mcp.ts`](src/mcp.ts) | Five MCP tools, run **stateless** (a fresh server per request), which suits Workers. |
+| [`src/mcp.ts`](src/mcp.ts) | Seven MCP tools, run **stateless** (a fresh server per request), which suits Workers. |
+| [`src/taste/`](src/taste) | Tagging (`tags.ts`), the taste model and daily pick (`model.ts`), the built-in catalog. Pure functions, unit-tested. |
+| [`src/ai/`](src/ai) | The model layer: one `ChatModel` interface, four providers, and `generateObject` (JSON validated by Zod, one repair attempt). |
+| [`src/today.ts`](src/today.ts) | Glue: tagging after each change, the cached daily card, background work with `waitUntil`. |
 | [`test/app.test.ts`](test/app.test.ts) | The tests, including "one visitor can't touch another's burger" and "a cross-site POST is rejected". |
 
 ### Design decisions
@@ -68,6 +84,21 @@ Read the code in this order; it is about 600 lines in total:
 - **htmx progressively enhances.** `hx-boost` on `<body>` turns every link and form into an in-place swap; with JavaScript off the browser does a normal navigation. Same server code either way.
 - **MCP SDK trade-off.** The official SDK brings the protocol details for free but is most of the bundle (about 270 KiB gzipped, far under the Workers limit). A hand-written JSON-RPC handler would be ~100 lines and tiny; the SDK is the better default while the spec is still moving.
 - **Strict CSP.** `script-src 'self'` and `style-src 'self'`, so htmx is vendored into `public/` (`pnpm vendor`) and configured with a `<meta>` tag instead of inline scripts.
+
+## Bring your own model
+
+Everything works without a model. To add one, set four values (in `.dev.vars` locally, as Worker secrets in production; see [`.dev.vars.example`](.dev.vars.example)):
+
+| `AI_PROVIDER` | Covers | `AI_BASE_URL` |
+| --- | --- | --- |
+| `ollama` | Local Ollama (Qwen, DeepSeek, GLM, Llama…) or Ollama Cloud | `http://localhost:11434` or `https://ollama.com` |
+| `openai` | Any OpenAI-compatible API: DeepSeek, Qwen (DashScope), GLM, Kimi K2, OpenAI, Gemini | the vendor's base URL |
+| `anthropic` | Claude | (default) |
+| `none` | No model: keyword tagging and template lines | |
+
+Plus `AI_MODEL` and, for hosted models, `AI_API_KEY`. Keys stay on the server; switching from a free model to a paid one is a config change, not a code change. In production: `pnpm exec wrangler secret put AI_PROVIDER` (and the same for the other three).
+
+Every model reply passes through [`generateObject`](src/ai/structured.ts): the Zod schema is sent as JSON Schema (Ollama enforces it natively), the reply is validated, and an invalid one gets one repair attempt before it is rejected. Tags must come from the fixed list, so a model can't invent features that would confuse the taste model.
 
 ## Connect an AI agent (MCP)
 
@@ -84,7 +115,7 @@ curl -s "$URL" -H 'content-type: application/json' -H 'accept: application/json,
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"add_burger","arguments":{"name":"Double smash"}}}'
 ```
 
-Tools: `add_burger`, `devour_burger`, `list_burgers`, `delete_burger`, `journal_stats`.
+Tools: `add_burger`, `devour_burger`, `list_burgers`, `delete_burger`, `journal_stats`, `todays_burger`, `taste_profile`. Ask your agent *"what's my burger today, and why?"*
 
 ## Deploy
 
@@ -104,14 +135,17 @@ With **Workers Builds** (Git integration) use build command `pnpm install --froz
 - **No rate limiting.** Anyone can create a journal and fill it to 200 burgers. Add a [Rate Limiting binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/) or Turnstile before real traffic.
 - **Lost cookie = lost journal** (unless you saved the MCP link or downloaded the JSON). That is the price of having no accounts.
 - **There is no key rotation yet.** If the link leaks, clear the cookie and start a new journal.
+- **A deployed Worker can't reach `localhost`.** Use a hosted endpoint (Ollama Cloud or a paid API) in production, or expose your own Ollama through a Cloudflare Tunnel.
+- **The taste model is small on purpose.** With a handful of ratings it is a hint, not a prediction; the card says how many ratings it learned from.
 
 ## Ideas to extend
 
 These are not built; each needs only a small step from here.
 
-- **Natural-language logging:** let an LLM turn "had the Bacon stack at Five Guys, 4/5" into an `add_burger` + `devour_burger` pair. Use Workers AI or an agent over MCP, and record runs in LangSmith to compare prompts.
-- **n8n:** a Friday workflow that calls `journal_stats` and posts "This week: 3 burgers, best was …" to Slack.
-- **Photos:** store one picture per burger in R2 and show it in the list.
+- **Make it at home:** turn today's pick plus your notes ("great bun, a bit salty") into a recipe that keeps what you liked and fixes what you didn't, then a shared shopping list for a cookout.
+- **Taste-off:** run the same request through two models side by side and pick the better answer; the picks become a small eval set for comparing models.
+- **Natural-language logging:** "had the Bacon stack at Five Guys, 4/5" → `add_burger` + `devour_burger`, through the same validated tools.
+- **n8n:** a morning workflow that calls `todays_burger` over MCP and posts the card to Slack or WeChat.
 
 ## Credits
 

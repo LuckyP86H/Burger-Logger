@@ -15,6 +15,7 @@ import {
   newKey,
 } from "./domain";
 import { handleMcp } from "./mcp";
+import { linkPickToCraving, tagBurger, tasteProfile, todaysCard } from "./today";
 import { Home } from "./views";
 
 const COOKIE = "journal";
@@ -69,17 +70,28 @@ async function home(
   error?: string,
 ) {
   const journal = c.get("journal");
-  const [burgers, stats] = await Promise.all([
+  const [burgers, stats, today, taste] = await Promise.all([
     listBurgers(c.env.DB, journal),
     readStats(c.env.DB, journal),
+    todaysCard(c.env, c.executionCtx, journal, utcDay()),
+    tasteProfile(c.env.DB, journal),
   ]);
   const mcpUrl = `${new URL(c.req.url).origin}/mcp/${c.get("key")}`;
   c.header("Cache-Control", "no-store");
   return c.html(
-    <Home burgers={burgers} stats={stats} mcpUrl={mcpUrl} error={error} />,
+    <Home
+      burgers={burgers}
+      stats={stats}
+      today={today}
+      taste={taste}
+      mcpUrl={mcpUrl}
+      error={error}
+    />,
     error ? 422 : 200,
   );
 }
+
+const utcDay = () => new Date().toISOString().slice(0, 10);
 
 const firstIssue = (error: z.ZodError) => {
   const issue = error.issues[0];
@@ -97,6 +109,7 @@ app.post("/burgers", async (c) => {
   if (!parsed.success) return home(c, firstIssue(parsed.error));
   const added = await addBurger(c.env.DB, c.get("journal"), parsed.data);
   if (!added) return home(c, `Your journal is full (${MAX_BURGERS} burgers). Delete some first.`);
+  await tagBurger(c.env, c.executionCtx, added);
   return c.redirect("/", 303);
 });
 
@@ -111,19 +124,36 @@ app.post("/burgers/:id/devour", async (c) => {
   });
   if (!parsed.success) return home(c, firstIssue(parsed.error));
   const done = id !== null && (await devourBurger(c.env.DB, c.get("journal"), id, parsed.data));
-  return done ? c.redirect("/", 303) : home(c, "That burger isn't on your craving list.");
+  if (!done) return home(c, "That burger isn't on your craving list.");
+  await tagBurger(c.env, c.executionCtx, done);
+  return c.redirect("/", 303);
 });
 
 app.post("/burgers/:id/undo", async (c) => {
   const id = idOf(c.req.param("id"));
   const done = id !== null && (await undoDevour(c.env.DB, c.get("journal"), id));
-  return done ? c.redirect("/", 303) : home(c, "That burger isn't in your devoured list.");
+  if (!done) return home(c, "That burger isn't in your devoured list.");
+  await tagBurger(c.env, c.executionCtx, done);
+  return c.redirect("/", 303);
 });
 
 app.post("/burgers/:id/delete", async (c) => {
   const id = idOf(c.req.param("id"));
   const done = id !== null && (await deleteBurger(c.env.DB, c.get("journal"), id));
   return done ? c.redirect("/", 303) : home(c, "That burger is already gone.");
+});
+
+// One tap from today's card to the craving list, with the card's tags carried over.
+app.post("/today/add", async (c) => {
+  const journal = c.get("journal");
+  const day = utcDay();
+  const card = await todaysCard(c.env, c.executionCtx, journal, day);
+  if (card.cravingId !== null) return c.redirect("/", 303);
+  const added = await addBurger(c.env.DB, journal, { name: card.en });
+  if (!added) return home(c, `Your journal is full (${MAX_BURGERS} burgers). Delete some first.`);
+  await tagBurger(c.env, c.executionCtx, added);
+  await linkPickToCraving(c.env.DB, journal, day, added.id);
+  return c.redirect(`/#burger-${added.id}`, 303);
 });
 
 app.get("/journal.json", async (c) => {
@@ -136,7 +166,7 @@ app.get("/journal.json", async (c) => {
 app.all("/mcp/:key", async (c) => {
   const key = c.req.param("key");
   if (!isKey(key)) return c.json({ error: "not_found" }, 404);
-  return handleMcp(c.req.raw, c.env.DB, await journalIdOf(key));
+  return handleMcp(c.req.raw, c.env, c.executionCtx, await journalIdOf(key));
 });
 
 app.notFound((c) => c.text("Not found", 404));

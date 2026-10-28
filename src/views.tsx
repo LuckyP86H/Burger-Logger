@@ -1,6 +1,8 @@
 import { raw } from "hono/html";
 import type { Child } from "hono/jsx";
 import type { Burger, Stats } from "./domain";
+import { TAG_LABELS } from "./taste/tags";
+import type { TasteProfile, TodayCard } from "./today";
 
 const dateFormat = new Intl.DateTimeFormat("en", {
   month: "short",
@@ -53,7 +55,7 @@ function Patties({ rating }: { rating: number }) {
 
 function CravingItem({ burger }: { burger: Burger }) {
   return (
-    <li class="item" data-testid="craving">
+    <li class="item" data-testid="craving" id={`burger-${burger.id}`}>
       <div class="item-head">
         <div>
           <strong>{burger.name}</strong>
@@ -93,7 +95,7 @@ function CravingItem({ burger }: { burger: Burger }) {
 
 function DevouredItem({ burger }: { burger: Burger }) {
   return (
-    <li class="item" data-testid="devoured">
+    <li class="item" data-testid="devoured" id={`burger-${burger.id}`}>
       <div class="item-head">
         <div>
           <strong>{burger.name}</strong>
@@ -121,9 +123,85 @@ function DevouredItem({ burger }: { burger: Burger }) {
   );
 }
 
+function Today({ card }: { card: TodayCard }) {
+  return (
+    <section class="today" aria-labelledby="today-title" data-testid="today">
+      <p class="today-kicker">
+        Today's burger · <span lang="zh">今日汉堡</span> · {shortDate(`${card.day}T12:00:00Z`)}
+      </p>
+      <div class="today-head">
+        <div>
+          <h2 id="today-title">{card.en}</h2>
+          {card.zh ? (
+            <p class="today-zh" lang="zh">
+              {card.zh}
+            </p>
+          ) : null}
+        </div>
+        <p class="match" data-testid="match">
+          <strong>{card.match}%</strong>
+          <span class="match-label">match</span>
+        </p>
+      </div>
+      <p class="almanac" data-testid="almanac">
+        <span class="yi" lang="zh">
+          宜
+        </span>{" "}
+        <span lang="zh">{card.yi.join(" · ")}</span>
+        <span class="ji" lang="zh">
+          忌
+        </span>{" "}
+        <span lang="zh">{card.ji.join(" · ")}</span>
+      </p>
+      <p class="today-line">
+        {card.line.en} <span lang="zh">{card.line.zh}</span>
+      </p>
+      {card.reasons.length ? (
+        <ul class="why" aria-label="Why this pick">
+          {card.reasons.map((reason) => (
+            <li>{reason}</li>
+          ))}
+        </ul>
+      ) : null}
+      <div class="today-foot">
+        {card.cravingId !== null ? (
+          <a class="button" href={`#burger-${card.cravingId}`}>
+            It's on your list: devour it today
+          </a>
+        ) : (
+          <form method="post" action="/today/add">
+            <button type="submit">Add today's pick to cravings</button>
+          </form>
+        )}
+        <span class="muted small-print">
+          {card.lineBy === "template" ? "Line from a template" : `Line written by ${card.lineBy}`} ·
+          learned from {card.learnedFrom} rating{card.learnedFrom === 1 ? "" : "s"}
+        </span>
+      </div>
+    </section>
+  );
+}
+
+function Taste({ taste }: { taste: TasteProfile }) {
+  if (!taste.liked.length && !taste.disliked.length) return null;
+  return (
+    <p class="taste" data-testid="taste">
+      <span class="muted">Your taste:</span>
+      {taste.liked.map((tag) => (
+        <span class="chip like">+ {TAG_LABELS[tag].en}</span>
+      ))}
+      {taste.disliked.map((tag) => (
+        <span class="chip dislike">− {TAG_LABELS[tag].en}</span>
+      ))}
+    </p>
+  );
+}
+
 export function Home(props: {
   burgers: Burger[];
   stats: Stats;
+  today: TodayCard;
+  taste: TasteProfile;
   mcpUrl: string;
   error?: string | undefined;
 }) {
@@ -147,6 +225,8 @@ export function Home(props: {
           </p>
         ) : null}
 
+        <Today card={props.today} />
+
         <dl class="stats" aria-label="Your journal">
           <div>
             <dt>Cravings</dt>
@@ -167,6 +247,7 @@ export function Home(props: {
             </dd>
           </div>
         </dl>
+        <Taste taste={props.taste} />
 
         <form method="post" action="/burgers" class="add">
           <label class="field">
@@ -231,7 +312,8 @@ export function Home(props: {
           />
           <p class="muted">
             Tools: <code>add_burger</code>, <code>devour_burger</code>, <code>list_burgers</code>,{" "}
-            <code>delete_burger</code>, <code>journal_stats</code>.
+            <code>delete_burger</code>, <code>journal_stats</code>, <code>todays_burger</code>,{" "}
+            <code>taste_profile</code>.
           </p>
         </details>
         <p class="muted">

@@ -3,6 +3,7 @@ import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/
 import { z } from "zod";
 import { addBurger, deleteBurger, devourBurger, listBurgers, readStats } from "./db";
 import { fields } from "./domain";
+import { type Background, tagBurger, tasteProfile, todaysCard } from "./today";
 
 const asText = (value: unknown) => ({
   content: [{ type: "text" as const, text: JSON.stringify(value) }],
@@ -13,7 +14,8 @@ const failure = (message: string) => ({
 });
 
 /** The journal's tools. Each call is bound to one journal, so an agent can only see its own. */
-function buildServer(db: D1Database, journal: string): McpServer {
+function buildServer(env: Env, background: Background, journal: string): McpServer {
+  const db = env.DB;
   const server = new McpServer({ name: "burger-logger", version: "2.0.0" });
 
   server.registerTool(
@@ -50,6 +52,7 @@ function buildServer(db: D1Database, journal: string): McpServer {
     },
     async ({ id, ...verdict }) => {
       const burger = await devourBurger(db, journal, id, verdict);
+      if (burger) await tagBurger(env, background, burger);
       return burger ? asText(burger) : failure(`Burger ${id} is not on the craving list.`);
     },
   );
@@ -70,6 +73,25 @@ function buildServer(db: D1Database, journal: string): McpServer {
     async () => asText(await readStats(db, journal)),
   );
 
+  server.registerTool(
+    "todays_burger",
+    {
+      description:
+        "Today's personal burger pick (今日汉堡): the burger, match %, reasons from the user's taste model, and the 宜/忌 almanac line. The same pick all day.",
+    },
+    async () =>
+      asText(await todaysCard(env, background, journal, new Date().toISOString().slice(0, 10))),
+  );
+
+  server.registerTool(
+    "taste_profile",
+    {
+      description:
+        "What the taste model has learned: liked and disliked tags, and from how many ratings.",
+    },
+    async () => asText(await tasteProfile(db, journal)),
+  );
+
   return server;
 }
 
@@ -77,11 +99,16 @@ function buildServer(db: D1Database, journal: string): McpServer {
  * Stateless MCP over Streamable HTTP: a fresh server per request, JSON responses, no sessions.
  * That fits Workers, where there is no long-lived process to hold a session.
  */
-export async function handleMcp(request: Request, db: D1Database, journal: string) {
+export async function handleMcp(
+  request: Request,
+  env: Env,
+  background: Background,
+  journal: string,
+) {
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true,
   });
-  await buildServer(db, journal).connect(transport);
+  await buildServer(env, background, journal).connect(transport);
   return transport.handleRequest(request);
 }

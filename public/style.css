@@ -313,3 +313,133 @@ code {
     animation-duration: 0s;
   }
 }
+
+/* 今日汉堡: the daily card */
+.today {
+  margin-top: 1rem;
+  padding: 1.25rem;
+  border-radius: 1.25rem;
+  border: 2px solid var(--accent);
+  background: linear-gradient(
+    135deg,
+    var(--surface),
+    color-mix(in oklab, var(--accent) 10%, var(--surface))
+  );
+}
+.today-kicker {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 0.02em;
+}
+.today-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+.today h2 {
+  font-size: 1.5rem;
+  margin: 0.25rem 0 0;
+}
+.today-zh {
+  margin: 0;
+  color: var(--muted);
+  font-size: 1.05rem;
+}
+.match {
+  margin: 0;
+  text-align: center;
+  line-height: 1.1;
+}
+.match strong {
+  display: block;
+  font-size: 2rem;
+  color: var(--accent);
+}
+.match-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.almanac {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.75rem 0 0.25rem;
+  font-weight: 600;
+}
+.almanac .yi,
+.almanac .ji {
+  display: inline-grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.4rem;
+  color: #fff;
+  font-weight: 700;
+}
+.almanac .yi {
+  background: #2f7d3a;
+}
+.almanac .ji {
+  background: #a1260f;
+  margin-left: 0.5rem;
+}
+.today-line {
+  margin: 0.25rem 0;
+  font-style: italic;
+}
+.why {
+  margin: 0.5rem 0;
+  padding-left: 1.1rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.today-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+.small-print {
+  font-size: 0.8rem;
+}
+a.button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.75rem;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+  text-decoration: none;
+}
+.taste {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  margin: -0.25rem 0 1rem;
+}
+.chip {
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: 1px solid var(--line);
+}
+.chip.like {
+  color: #2f7d3a;
+}
+.chip.dislike {
+  color: var(--danger);
+}
+@media (prefers-color-scheme: dark) {
+  .chip.like {
+    color: #8fd49a;
+  }
+}
