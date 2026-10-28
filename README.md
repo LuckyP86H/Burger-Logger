@@ -23,9 +23,18 @@ How the card is made, in three steps you can read in [`src/taste/`](src/taste):
 
 1. **Text → features.** Each burger's name and note become tags from a fixed list, with sentiment: *"great bacon, a bit salty"* → `bacon +1, salty −1`. A keyword tagger (English and Chinese) runs instantly; if a model is connected it re-reads the text in the background and its validated tags replace the keyword ones.
 2. **Features → taste.** Each rating minus your average is shared among that burger's tags; praise or complaints push a tag one more point. Dividing by `count + 2` keeps a tag near zero until it has a few examples (the idea behind ridge regularisation). Weights like `smoky +0.8, salty −0.9` are the whole model.
-3. **Taste → today's pick.** Your cravings and 20 classic styles are scored, with a bonus for a patty you haven't had in two weeks. One is drawn with a die seeded by your journal and the date, so it is the **same pick all day**, like a daily almanac: **宜** what today favours, **忌** what to avoid.
+3. **Taste → today's pick.** Your cravings and 20 classic styles are scored, with a bonus for a patty you haven't had in two weeks. One is drawn with a die seeded by your journal and the date, so it is the **same pick all day**.
 
-A model, if configured, only writes the witty line. Until it answers, or if it fails, a template line stands in. The card says which wrote it.
+The card is written to feel good, using four small ideas from psychology:
+
+| On the card | Example | Why it works |
+| --- | --- | --- |
+| A memory, in your own words | 💭 You gave *Smoked brisket smash* 5/5 "great char". This one is smoky too. | Being remembered feels personal; a generic "you might like" does not. |
+| A sensory preview | *Picture it: crispy, lacy edges, cheese melting over the side and a deep smoky char.* | Imagining the first bite is part of the pleasure (anticipation, or savouring). |
+| One new thing | ✨ Something new for you: your first plant-based pick. | Novelty inside something familiar is exciting rather than risky. |
+| A promise | 👌 Easy on the salt: you've said "too salty" twice. | Removing a known worry beats warning about it. |
+
+A model, if configured, only rewrites the sensory preview. Until it answers, or if it fails, a template preview stands in, and the card says which wrote it.
 
 ## See it work
 

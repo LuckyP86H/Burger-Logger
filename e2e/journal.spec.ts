@@ -109,8 +109,7 @@ test("今日汉堡: today's card offers a pick and adds it to cravings in one ta
   await page.goto("/");
   const card = page.getByTestId("today");
   await expect(card).toContainText("今日汉堡");
-  await expect(card.getByTestId("almanac")).toContainText("宜");
-  await expect(card.getByTestId("almanac")).toContainText("忌");
+  await expect(card.getByTestId("teaser")).not.toBeEmpty();
   await expect(card.getByTestId("match")).toHaveText(/\d+%\s*match/);
 
   const pick = (await card.getByRole("heading", { level: 2 }).textContent())?.trim() ?? "";

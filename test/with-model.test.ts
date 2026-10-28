@@ -5,10 +5,10 @@ import { describe, expect, it, vi } from "vitest";
 const ORIGIN = "https://burgers.test";
 
 describe("with a model connected", () => {
-  it("re-tags in the background and writes the almanac line, without slowing the response", async () => {
+  it("re-tags in the background and writes the sensory preview, without slowing the response", async () => {
     const first = await exports.default.fetch(`${ORIGIN}/`, { redirect: "manual" });
     const cookie = first.headers.get("set-cookie")?.split(";")[0] ?? "";
-    expect(await first.text()).toContain("Line from a template");
+    expect(await first.text()).toContain("Preview from a template");
 
     const added = await exports.default.fetch(`${ORIGIN}/burgers`, {
       method: "POST",
@@ -28,8 +28,8 @@ describe("with a model connected", () => {
       const html = await (
         await exports.default.fetch(`${ORIGIN}/`, { headers: { cookie } })
       ).text();
-      expect(html).toContain("Line written by fake:demo");
-      expect(html).toContain("今日宜芝士，诸事皆融。");
+      expect(html).toContain("Preview by fake:demo");
+      expect(html).toContain("A crackle as you bite through the crisp edge");
     });
   });
 });

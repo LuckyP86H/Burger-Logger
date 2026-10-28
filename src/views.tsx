@@ -143,26 +143,39 @@ function Today({ card }: { card: TodayCard }) {
           <span class="match-label">match</span>
         </p>
       </div>
-      <p class="almanac" data-testid="almanac">
-        <span class="yi" lang="zh">
-          宜
-        </span>{" "}
-        <span lang="zh">{card.yi.join(" · ")}</span>
-        <span class="ji" lang="zh">
-          忌
-        </span>{" "}
-        <span lang="zh">{card.ji.join(" · ")}</span>
+      <p class="teaser" data-testid="teaser">
+        {card.teaser}
       </p>
-      <p class="today-line">
-        {card.line.en} <span lang="zh">{card.line.zh}</span>
-      </p>
-      {card.reasons.length ? (
-        <ul class="why" aria-label="Why this pick">
-          {card.reasons.map((reason) => (
-            <li>{reason}</li>
-          ))}
-        </ul>
-      ) : null}
+      <ul class="why" aria-label="Why this pick">
+        {card.memory ? (
+          <li data-testid="memory">
+            <span aria-hidden="true">💭</span> You gave <strong>{card.memory.name}</strong>{" "}
+            {card.memory.rating}/5
+            {card.memory.note ? <q>{card.memory.note}</q> : null}. This one {card.memory.because}.
+          </li>
+        ) : null}
+        {card.discovery ? (
+          <li data-testid="discovery">
+            <span aria-hidden="true">✨</span> {card.discovery}.
+          </li>
+        ) : null}
+        {card.reassurance ? (
+          <li data-testid="reassurance">
+            <span aria-hidden="true">👌</span> {card.reassurance}
+          </li>
+        ) : null}
+        {card.cravingId !== null ? (
+          <li>
+            <span aria-hidden="true">📌</span> It's already on your craving list.
+          </li>
+        ) : null}
+        {card.learnedFrom < 3 ? (
+          <li>
+            <span aria-hidden="true">🌱</span> Rate {3 - card.learnedFrom} more burger
+            {3 - card.learnedFrom === 1 ? "" : "s"} and this gets personal.
+          </li>
+        ) : null}
+      </ul>
       <div class="today-foot">
         {card.cravingId !== null ? (
           <a class="button" href={`#burger-${card.cravingId}`}>
@@ -174,8 +187,8 @@ function Today({ card }: { card: TodayCard }) {
           </form>
         )}
         <span class="muted small-print">
-          {card.lineBy === "template" ? "Line from a template" : `Line written by ${card.lineBy}`} ·
-          learned from {card.learnedFrom} rating{card.learnedFrom === 1 ? "" : "s"}
+          {card.teaserBy === "template" ? "Preview from a template" : `Preview by ${card.teaserBy}`}{" "}
+          · learned from {card.learnedFrom} rating{card.learnedFrom === 1 ? "" : "s"}
         </span>
       </div>
     </section>

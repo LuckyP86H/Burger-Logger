@@ -163,8 +163,9 @@ const DEMO_FAKE = fake(
       reply: '{"tags":[{"tag":"beef","polarity":0},{"tag":"cheesy","polarity":0}]}',
     },
     {
-      when: /^Write today's line/,
-      reply: '{"en":"The grill gods smile on melted cheese today.","zh":"今日宜芝士，诸事皆融。"}',
+      when: /^Write today's teaser/,
+      reply:
+        '{"text":"A crackle as you bite through the crisp edge, then warm cheese and a soft, toasted bun."}',
     },
   ],
   "fake:demo",

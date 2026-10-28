@@ -195,7 +195,7 @@ async function lifecycle(page, rec, extra = "") {
   const rec = recorder(page);
   await page.goto(BASE);
   await page.getByTestId("today").scrollIntoViewIfNeeded();
-  await rec.shot("Day one: 今日汉堡 is still learning", 2.2);
+  await rec.shot("Day one: a pick, and a promise to learn", 2.2);
 
   const post = (path, form) =>
     page.request.post(`${BASE}${path}`, { form, headers: { origin: BASE } });
@@ -222,7 +222,7 @@ async function lifecycle(page, rec, extra = "") {
     { stdio: "ignore" },
   );
   await page.goto(BASE);
-  await rec.shot("Next day: it learned smoky +, salty −", 3);
+  await rec.shot("Next day: it remembers what you loved", 3.4);
   rec.save("todays-burger");
   await page.context().close();
 }

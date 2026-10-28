@@ -77,7 +77,7 @@ function buildServer(env: Env, background: Background, journal: string): McpServ
     "todays_burger",
     {
       description:
-        "Today's personal burger pick (今日汉堡): the burger, match %, reasons from the user's taste model, and the 宜/忌 almanac line. The same pick all day.",
+        "Today's personal burger pick (今日汉堡): the burger, match %, a memory of a past favourite it resembles, anything new in it, what it avoids, and a sensory preview. The same pick all day.",
     },
     async () =>
       asText(await todaysCard(env, background, journal, new Date().toISOString().slice(0, 10))),

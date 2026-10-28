@@ -362,40 +362,22 @@ code {
   font-size: 0.8rem;
   color: var(--muted);
 }
-.almanac {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.4rem;
-  margin: 0.75rem 0 0.25rem;
-  font-weight: 600;
-}
-.almanac .yi,
-.almanac .ji {
-  display: inline-grid;
-  place-items: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: 0.4rem;
-  color: #fff;
-  font-weight: 700;
-}
-.almanac .yi {
-  background: #2f7d3a;
-}
-.almanac .ji {
-  background: #a1260f;
-  margin-left: 0.5rem;
-}
-.today-line {
-  margin: 0.25rem 0;
+.teaser {
+  margin: 0.6rem 0 0.25rem;
+  font-size: 1.05rem;
   font-style: italic;
 }
 .why {
+  list-style: none;
   margin: 0.5rem 0;
-  padding-left: 1.1rem;
-  color: var(--muted);
-  font-size: 0.9rem;
+  padding: 0;
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.95rem;
+}
+.why q {
+  font-style: italic;
+  margin-left: 0.25rem;
 }
 .today-foot {
   display: flex;

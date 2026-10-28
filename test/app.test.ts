@@ -328,7 +328,8 @@ describe("今日汉堡 (today's burger)", () => {
     const visitor = new Visitor();
     const first = await visitor.page();
     expect(first).toContain("今日汉堡");
-    expect(first).toMatch(/data-testid="almanac"/);
+    expect(first).toMatch(/data-testid="teaser"/);
+    expect(first).not.toContain("忌");
     const title = first.match(/<h2 id="today-title">([^<]+)</)?.[1];
     expect(title).toBeTruthy();
     expect((await visitor.page()).match(/<h2 id="today-title">([^<]+)</)?.[1]).toBe(title);
@@ -381,11 +382,11 @@ describe("今日汉堡 (today's burger)", () => {
     expect(left).toEqual({ n: 0 });
   });
 
-  it("learns from ratings and shows it in the taste strip and the almanac", async () => {
+  it("learns from ratings, then quotes a favourite back and promises to avoid a dislike", async () => {
     const visitor = new Visitor();
     for (const [name, rating, note] of [
       ["Smoky BBQ bacon", "5", "loved the bacon"],
-      ["Smoked brisket burger", "5", ""],
+      ["Smoked brisket burger", "5", "great char"],
       ["Salty pretzel burger", "2", "way too salty"],
       ["Anchovy burger", "2", "too salty again"],
     ] as const) {
@@ -397,11 +398,26 @@ describe("今日汉堡 (today's burger)", () => {
     const html = await visitor.page();
     expect(html).toMatch(/data-testid="taste"[\s\S]*\+ smoky/);
     expect(html).toMatch(/class="chip dislike">− salty/);
-    // 忌 warns about saltiness, unless today's pick is itself salty.
+
     const row = await env.DB.prepare("SELECT pick FROM daily_picks").first<{ pick: string }>();
-    const card = JSON.parse(row?.pick ?? "{}") as { tags: string[]; ji: string[] };
-    expect(card.ji.includes("太咸")).toBe(!card.tags.includes("salty"));
-    if (!card.tags.includes("salty")) expect(html).toContain("太咸");
+    const card = JSON.parse(row?.pick ?? "{}") as {
+      tags: string[];
+      memory: { name: string; note: string | null } | null;
+      reassurance: string | null;
+    };
+    // The pick shares something you loved, so the card names that burger and your own words.
+    if (card.tags.includes("smoky")) {
+      expect(["Smoky BBQ bacon", "Smoked brisket burger"]).toContain(card.memory?.name);
+      expect(html).toContain(card.memory?.name ?? "missing memory");
+    }
+    // A salty pick never promises to be easy on the salt.
+    if (card.tags.includes("salty")) expect(card.reassurance).toBeNull();
+    else expect(card.reassurance).toBe('Easy on the salt: you\'ve said "too salty" twice.');
+  });
+
+  it("never shows the old almanac wording", async () => {
+    const html = await new Visitor().page();
+    expect(html).not.toMatch(/宜|忌/);
   });
 
   it("is available to agents over MCP, and matches the page", async () => {
@@ -425,6 +441,6 @@ describe("今日汉堡 (today's burger)", () => {
     const body = (await response.json()) as { result: { content: { text: string }[] } };
     const card = JSON.parse(body.result.content[0]?.text ?? "{}");
     expect(card.en).toBe(title);
-    expect(card.yi.length).toBeGreaterThan(0);
+    expect(card.teaser.length).toBeGreaterThan(5);
   });
 });
