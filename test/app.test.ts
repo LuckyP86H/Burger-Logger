@@ -4,9 +4,13 @@ import { MAX_BURGERS } from "../src/domain";
 
 const ORIGIN = "https://burgers.test";
 
-/** A tiny browser: remembers the journal cookie between requests, like a real visitor. */
+/** A tiny browser: keeps every cookie it is sent, like a real visitor, so the journal and language cookies coexist. */
 class Visitor {
-  cookie = "";
+  private cookies = new Map<string, string>();
+
+  private get cookie() {
+    return [...this.cookies].map(([name, value]) => `${name}=${value}`).join("; ");
+  }
 
   async fetch(path: string, init: RequestInit = {}) {
     const headers = new Headers(init.headers);
@@ -16,8 +20,11 @@ class Visitor {
       headers,
       redirect: "manual",
     });
-    const set = response.headers.get("set-cookie");
-    if (set) this.cookie = set.split(";")[0] ?? "";
+    for (const set of response.headers.getSetCookie()) {
+      const [pair = ""] = set.split(";");
+      const [name = "", ...value] = pair.split("=");
+      this.cookies.set(name, value.join("="));
+    }
     return response;
   }
 
@@ -34,7 +41,7 @@ class Visitor {
   }
 
   get key() {
-    return this.cookie.split("=")[1] ?? "";
+    return this.cookies.get("journal") ?? "";
   }
 }
 
@@ -403,7 +410,7 @@ describe("today's burger (daily pick)", () => {
     const card = JSON.parse(row?.pick ?? "{}") as {
       tags: string[];
       memory: { name: string; note: string | null } | null;
-      reassurance: string | null;
+      reassurance: { en: string; zh: string } | null;
     };
     // The pick shares something you loved, so the card names that burger and your own words.
     if (card.tags.includes("smoky")) {
@@ -412,7 +419,10 @@ describe("today's burger (daily pick)", () => {
     }
     // A salty pick never promises to be easy on the salt.
     if (card.tags.includes("salty")) expect(card.reassurance).toBeNull();
-    else expect(card.reassurance).toBe('Easy on the salt: you\'ve said "too salty" twice.');
+    else {
+      expect(card.reassurance?.en).toBe('Easy on the salt: you\'ve said "too salty" twice.');
+      expect(card.reassurance?.zh).toBe("少盐：你说过「太咸」两次。");
+    }
   });
 
   it("never shows the old almanac wording", async () => {
@@ -440,7 +450,63 @@ describe("today's burger (daily pick)", () => {
     });
     const body = (await response.json()) as { result: { content: { text: string }[] } };
     const card = JSON.parse(body.result.content[0]?.text ?? "{}");
-    expect(card.en).toBe(title);
-    expect(card.teaser.length).toBeGreaterThan(5);
+    expect(card.name.en).toBe(title);
+    expect(card.teaser.en.length).toBeGreaterThan(5);
+  });
+});
+
+describe("languages", () => {
+  it("serves English by default and Chinese when the browser asks for it", async () => {
+    const visitor = new Visitor();
+    const english = await (await visitor.fetch("/")).text();
+    expect(english).toContain("Burger Logger");
+    expect(english).toContain('lang="en"');
+
+    const chinese = await (
+      await visitor.fetch("/", { headers: { "accept-language": "zh-CN,zh;q=0.9,en;q=0.5" } })
+    ).text();
+    expect(chinese).toContain("汉堡记录");
+    expect(chinese).toContain('lang="zh-CN"');
+    expect(chinese).toContain("今日汉堡");
+  });
+
+  it("lets the link choose a language and remembers it in a cookie", async () => {
+    const visitor = new Visitor();
+    const toggled = await visitor.fetch("/lang/zh");
+    expect(toggled.status).toBe(303);
+    expect(toggled.headers.get("location")).toBe("/");
+    expect(toggled.headers.get("set-cookie")).toContain("lang=zh");
+
+    // The saved cookie now decides, even though the browser asks for English.
+    const page = await (
+      await visitor.fetch("/", { headers: { "accept-language": "en-US" } })
+    ).text();
+    expect(page).toContain("汉堡记录");
+  });
+
+  it("rejects an unknown language", async () => {
+    const response = await new Visitor().fetch("/lang/fr");
+    expect(response.status).toBe(404);
+  });
+
+  it("shows validation errors in the chosen language", async () => {
+    const visitor = new Visitor();
+    await visitor.fetch("/lang/zh");
+    const response = await visitor.post("/burgers", { name: "x".repeat(81) });
+    expect(response.status).toBe(422);
+    expect(await response.text()).toContain("汉堡名称：太长了");
+  });
+
+  it("keeps a craving added from today's card in the language it was added in", async () => {
+    const visitor = new Visitor();
+    await visitor.fetch("/lang/zh");
+    await visitor.post("/today/add", {});
+    const { burgers } = (await (await visitor.fetch("/journal.json")).json()) as {
+      burgers: { name: string }[];
+    };
+    const [added] = burgers;
+    expect(added).toBeDefined();
+    // Catalog names are stored as the Chinese text, so the list reads naturally in Chinese.
+    expect(/[一-鿿]/.test(added?.name ?? "")).toBe(true);
   });
 });

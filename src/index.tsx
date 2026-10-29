@@ -14,6 +14,7 @@ import {
   MAX_BURGERS,
   newKey,
 } from "./domain";
+import { isLang, LANG_COOKIE, type Lang, pickLang, t } from "./i18n";
 import { handleMcp } from "./mcp";
 import { linkPickToCraving, tagBurger, tasteProfile, todaysCard } from "./today";
 import { Home } from "./views";
@@ -21,7 +22,7 @@ import { Home } from "./views";
 const COOKIE = "journal";
 const ONE_YEAR = 60 * 60 * 24 * 365;
 
-type Variables = { key: string; journal: string };
+type Variables = { key: string; journal: string; lang: Lang };
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 app.use(
@@ -62,7 +63,29 @@ app.use("*", async (c, next) => {
   }
   c.set("key", key);
   c.set("journal", await journalIdOf(key));
+  c.set(
+    "lang",
+    pickLang(
+      new URL(c.req.url),
+      getCookie(c, LANG_COOKIE),
+      c.req.header("accept-language") ?? null,
+    ),
+  );
   return next();
+});
+
+// Language is a cookie, so the forms' redirects keep it. The link works without JavaScript too.
+app.get("/lang/:lang", (c) => {
+  const lang = c.req.param("lang");
+  if (!isLang(lang)) return c.notFound();
+  setCookie(c, LANG_COOKIE, lang, {
+    httpOnly: true,
+    sameSite: "Lax",
+    secure: c.req.url.startsWith("https:"),
+    maxAge: ONE_YEAR,
+    path: "/",
+  });
+  return c.redirect("/", 303);
 });
 
 async function home(
@@ -80,6 +103,7 @@ async function home(
   c.header("Cache-Control", "no-store");
   return c.html(
     <Home
+      lang={c.get("lang")}
       burgers={burgers}
       stats={stats}
       today={today}
@@ -93,9 +117,29 @@ async function home(
 
 const utcDay = () => new Date().toISOString().slice(0, 10);
 
-const firstIssue = (error: z.ZodError) => {
+/** The first validation problem, in the viewer's language. Zod's own English messages stay for logs. */
+const firstIssue = (error: z.ZodError, lang: Lang) => {
   const issue = error.issues[0];
-  return issue ? `${issue.path.join(".") || "Input"}: ${issue.message}` : "Invalid input.";
+  if (!issue) return t(lang, "error.invalid");
+  const field = String(issue.path[0] ?? "");
+  const fieldLabel = {
+    name: "error.fieldName",
+    place: "error.fieldPlace",
+    note: "error.fieldNote",
+    rating: "error.fieldRating",
+  }[field] as "error.fieldName" | undefined;
+  const problem =
+    issue.code === "too_small"
+      ? "error.tooShort"
+      : issue.code === "too_big"
+        ? "error.tooLong"
+        : issue.code === "invalid_format"
+          ? "error.badCharacters"
+          : issue.code === "invalid_value" || issue.code === "invalid_type"
+            ? "error.badValue"
+            : "error.generic";
+  if (!fieldLabel) return t(lang, "error.invalid");
+  return `${t(lang, fieldLabel)}${t(lang, "error.join")}${t(lang, problem)}`;
 };
 
 app.get("/", (c) => home(c));
@@ -106,9 +150,9 @@ app.post("/burgers", async (c) => {
     name: form.get("name"),
     place: blankToUndefined(form.get("place")),
   });
-  if (!parsed.success) return home(c, firstIssue(parsed.error));
+  if (!parsed.success) return home(c, firstIssue(parsed.error, c.get("lang")));
   const added = await addBurger(c.env.DB, c.get("journal"), parsed.data);
-  if (!added) return home(c, `Your journal is full (${MAX_BURGERS} burgers). Delete some first.`);
+  if (!added) return home(c, t(c.get("lang"), "error.full", { max: MAX_BURGERS }));
   await tagBurger(c.env, c.executionCtx, added);
   return c.redirect("/", 303);
 });
@@ -122,9 +166,9 @@ app.post("/burgers/:id/devour", async (c) => {
     rating: Number(form.get("rating")),
     note: blankToUndefined(form.get("note")),
   });
-  if (!parsed.success) return home(c, firstIssue(parsed.error));
+  if (!parsed.success) return home(c, firstIssue(parsed.error, c.get("lang")));
   const done = id !== null && (await devourBurger(c.env.DB, c.get("journal"), id, parsed.data));
-  if (!done) return home(c, "That burger isn't on your craving list.");
+  if (!done) return home(c, t(c.get("lang"), "error.notOnList"));
   await tagBurger(c.env, c.executionCtx, done);
   return c.redirect("/", 303);
 });
@@ -132,7 +176,7 @@ app.post("/burgers/:id/devour", async (c) => {
 app.post("/burgers/:id/undo", async (c) => {
   const id = idOf(c.req.param("id"));
   const done = id !== null && (await undoDevour(c.env.DB, c.get("journal"), id));
-  if (!done) return home(c, "That burger isn't in your devoured list.");
+  if (!done) return home(c, t(c.get("lang"), "error.notDevoured"));
   await tagBurger(c.env, c.executionCtx, done);
   return c.redirect("/", 303);
 });
@@ -140,7 +184,7 @@ app.post("/burgers/:id/undo", async (c) => {
 app.post("/burgers/:id/delete", async (c) => {
   const id = idOf(c.req.param("id"));
   const done = id !== null && (await deleteBurger(c.env.DB, c.get("journal"), id));
-  return done ? c.redirect("/", 303) : home(c, "That burger is already gone.");
+  return done ? c.redirect("/", 303) : home(c, t(c.get("lang"), "error.gone"));
 });
 
 // One tap from today's card to the craving list, with the card's tags carried over.
@@ -149,8 +193,9 @@ app.post("/today/add", async (c) => {
   const day = utcDay();
   const card = await todaysCard(c.env, c.executionCtx, journal, day);
   if (card.cravingId !== null) return c.redirect("/", 303);
-  const added = await addBurger(c.env.DB, journal, { name: card.en });
-  if (!added) return home(c, `Your journal is full (${MAX_BURGERS} burgers). Delete some first.`);
+  const lang = c.get("lang");
+  const added = await addBurger(c.env.DB, journal, { name: card.name[lang] });
+  if (!added) return home(c, t(lang, "error.full", { max: MAX_BURGERS }));
   await tagBurger(c.env, c.executionCtx, added);
   await linkPickToCraving(c.env.DB, journal, day, added.id);
   return c.redirect(`/#burger-${added.id}`, 303);

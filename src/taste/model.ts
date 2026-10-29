@@ -1,3 +1,4 @@
+import type { Localised } from "../i18n";
 import { CATALOG } from "./catalog";
 import { PATTIES, type Tag, type TagRead } from "./tags";
 
@@ -119,7 +120,8 @@ export function tasteSummary(model: TasteModel, count = 3) {
 
 export interface Candidate {
   key: string;
-  en: string;
+  /** The burger's name in each language; a catalog style has both, a craving uses what was typed. */
+  name: Localised;
   tags: Tag[];
   /** A craving id when the pick is already on the user's list. */
   cravingId: number | null;
@@ -148,12 +150,12 @@ export function pickOfTheDay(
   journal: string,
   today: string,
 ): { candidate: Candidate; prediction: Prediction } {
-  const cravingKeys = new Set(cravings.map((c) => c.en.toLowerCase()));
+  const cravingKeys = new Set(cravings.map((c) => c.name.en.toLowerCase()));
   const candidates: Candidate[] = [
     ...cravings,
     ...CATALOG.filter((c) => !cravingKeys.has(c.en.toLowerCase())).map((c) => ({
       key: `catalog:${c.slug}`,
-      en: c.en,
+      name: { en: c.en, zh: c.zh },
       tags: c.tags,
       cravingId: null,
     })),

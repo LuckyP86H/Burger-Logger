@@ -165,7 +165,7 @@ const DEMO_FAKE = fake(
     {
       when: /^Write today's teaser/,
       reply:
-        '{"text":"A crackle as you bite through the crisp edge, then warm cheese and a soft, toasted bun."}',
+        '{"en":"A crackle as you bite through the crisp edge, then warm cheese and a soft, toasted bun.","zh":"咬下去时外皮噼啪作响，接着是温热的芝士和烤得微焦的软面包。"}',
     },
   ],
   "fake:demo",

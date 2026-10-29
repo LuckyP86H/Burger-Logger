@@ -94,6 +94,14 @@ Read the code in this order; it is about 600 lines in total:
 - **MCP SDK trade-off.** The official SDK brings the protocol details for free but is most of the bundle (about 270 KiB gzipped, far under the Workers limit). A hand-written JSON-RPC handler would be ~100 lines and tiny; the SDK is the better default while the spec is still moving.
 - **Strict CSP.** `script-src 'self'` and `style-src 'self'`, so htmx is vendored into `public/` (`pnpm vendor`) and configured with a `<meta>` tag instead of inline scripts.
 
+## Languages: English and 中文
+
+The app is available in English and Chinese (简体中文). Use the link at the top of any page to switch. The choice is saved in a cookie, so the forms keep it. A first visit follows your browser's language.
+
+Each visible string lives in `src/i18n.ts`, and the Chinese table is type-checked against the English one, so a missing translation fails the build. Daily-card text is generated in both languages once per day, and the optional model writes both teasers in one call. MCP tools stay in English, since agents read them as data.
+
+Only two languages for now. Adding more means one more table in `src/i18n.ts` and one more `zh`-style field on each catalog style and tag label.
+
 ## Bring your own model
 
 Everything works without a model. To add one, set four values (in `.dev.vars` locally, as Worker secrets in production; see [`.dev.vars.example`](.dev.vars.example)):
