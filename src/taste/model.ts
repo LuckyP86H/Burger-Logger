@@ -120,7 +120,6 @@ export function tasteSummary(model: TasteModel, count = 3) {
 export interface Candidate {
   key: string;
   en: string;
-  zh: string | null;
   tags: Tag[];
   /** A craving id when the pick is already on the user's list. */
   cravingId: number | null;
@@ -155,7 +154,6 @@ export function pickOfTheDay(
     ...CATALOG.filter((c) => !cravingKeys.has(c.en.toLowerCase())).map((c) => ({
       key: `catalog:${c.slug}`,
       en: c.en,
-      zh: c.zh,
       tags: c.tags,
       cravingId: null,
     })),

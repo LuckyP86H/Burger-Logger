@@ -323,11 +323,11 @@ describe("MCP", () => {
   });
 });
 
-describe("今日汉堡 (today's burger)", () => {
+describe("today's burger (daily pick)", () => {
   it("shows one pick per day and keeps it across reloads", async () => {
     const visitor = new Visitor();
     const first = await visitor.page();
-    expect(first).toContain("今日汉堡");
+    expect(first).toContain("Today&#39;s burger");
     expect(first).toMatch(/data-testid="teaser"/);
     expect(first).not.toContain("忌");
     const title = first.match(/<h2 id="today-title">([^<]+)</)?.[1];

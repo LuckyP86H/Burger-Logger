@@ -251,7 +251,6 @@ describe("the taste model", () => {
     const craving = {
       key: "craving:7",
       en: "Ghost pepper smash",
-      zh: null,
       tags: ["beef", "spicy", "smash"] as const,
       cravingId: 7,
     };

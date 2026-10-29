@@ -103,12 +103,12 @@ test.describe("with JavaScript turned off", () => {
   });
 });
 
-test("今日汉堡: today's card offers a pick and adds it to cravings in one tap", async ({
+test("today's burger: the daily card offers a pick and adds it to cravings in one tap", async ({
   page,
 }) => {
   await page.goto("/");
   const card = page.getByTestId("today");
-  await expect(card).toContainText("今日汉堡");
+  await expect(card).toContainText("Today's burger");
   await expect(card.getByTestId("teaser")).not.toBeEmpty();
   await expect(card.getByTestId("match")).toHaveText(/\d+%\s*match/);
 

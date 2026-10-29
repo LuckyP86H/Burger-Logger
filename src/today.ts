@@ -112,7 +112,6 @@ async function loadJournal(db: D1Database, journal: string) {
     .map((r) => ({
       key: `craving:${r.id}`,
       en: r.name,
-      zh: null,
       tags: tagsOf(r).map((t) => t.tag),
       cravingId: r.id,
     }));
@@ -123,7 +122,6 @@ export interface TodayCard {
   day: string;
   key: string;
   en: string;
-  zh: string | null;
   tags: Tag[];
   cravingId: number | null;
   match: number;
@@ -287,7 +285,6 @@ export async function todaysCard(
     day,
     key: candidate.key,
     en: candidate.en,
-    zh: candidate.zh,
     tags: candidate.tags,
     cravingId: candidate.cravingId,
     match: prediction.match,

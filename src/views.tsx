@@ -126,17 +126,10 @@ function DevouredItem({ burger }: { burger: Burger }) {
 function Today({ card }: { card: TodayCard }) {
   return (
     <section class="today" aria-labelledby="today-title" data-testid="today">
-      <p class="today-kicker">
-        Today's burger · <span lang="zh">今日汉堡</span> · {shortDate(`${card.day}T12:00:00Z`)}
-      </p>
+      <p class="today-kicker">Today's burger · {shortDate(`${card.day}T12:00:00Z`)}</p>
       <div class="today-head">
         <div>
           <h2 id="today-title">{card.en}</h2>
-          {card.zh ? (
-            <p class="today-zh" lang="zh">
-              {card.zh}
-            </p>
-          ) : null}
         </div>
         <p class="match" data-testid="match">
           <strong>{card.match}%</strong>
