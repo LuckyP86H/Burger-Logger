@@ -1,0 +1,21 @@
+# Copy to .dev.vars (git-ignored) to give `pnpm dev` a model. Leave AI_PROVIDER empty or "none"
+# to run without one: the app keeps working, with keyword tagging and template almanac lines.
+
+# Local Ollama (free): `ollama pull qwen3:8b`, then:
+AI_PROVIDER=ollama
+AI_BASE_URL=http://localhost:11434
+AI_MODEL=qwen3:8b
+
+# Ollama Cloud: AI_BASE_URL=https://ollama.com, a cloud model name, and your key:
+# AI_API_KEY=...
+
+# Any OpenAI-compatible API (DeepSeek, Qwen/DashScope, GLM, Kimi, OpenAI, Gemini):
+# AI_PROVIDER=openai
+# AI_BASE_URL=https://api.deepseek.com
+# AI_MODEL=deepseek-chat
+# AI_API_KEY=...
+
+# Claude:
+# AI_PROVIDER=anthropic
+# AI_MODEL=claude-sonnet-5-5
+# AI_API_KEY=...

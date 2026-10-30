@@ -1,0 +1,9 @@
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+
+/htmx.min.js
+  Cache-Control: public, max-age=86400
+
+/style.css
+  Cache-Control: public, max-age=3600
